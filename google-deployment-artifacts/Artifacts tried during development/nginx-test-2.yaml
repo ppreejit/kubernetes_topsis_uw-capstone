@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-test-2
+spec:
+  schedulerName: topsis-scheduler
+  containers:
+  - name: nginx
+    image: nginx

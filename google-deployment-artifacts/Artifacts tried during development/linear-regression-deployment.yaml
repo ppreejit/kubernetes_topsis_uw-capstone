@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: linear-regression
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: linear-regression
+  template:
+    metadata:
+      labels:
+        app: linear-regression
+    spec:
+      schedulerName: topsis-scheduler
+      containers:
+        - name: linear-regression
+          image: ppreejit/linear-regression:v1
+          imagePullPolicy: Always

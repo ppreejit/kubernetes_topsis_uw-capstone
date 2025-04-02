@@ -1,0 +1,508 @@
+---
+# Small Regression Jobs (Light Category) - TOPSIS
+apiVersion: v1
+kind: Pod
+metadata:
+  name: small-regression-topsis-1
+  annotations:
+    task.type: "compute_intensive"
+    task.loc: "110"
+    task.size: "small"
+spec:
+  schedulerName: topsis-scheduler
+  containers:
+  - name: small-regression
+    image: ppreejit/small-regression:latest
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "200m"
+        memory: "512Mi"
+    volumeMounts:
+    - name: data-volume
+      mountPath: /app/data
+  volumes:
+  - name: data-volume
+    emptyDir: {}
+  tolerations:
+  - key: "cloud.google.com/gke-spot"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: small-regression-topsis-2
+  annotations:
+    task.type: "compute_intensive"
+    task.loc: "110"
+    task.size: "small"
+spec:
+  schedulerName: topsis-scheduler
+  containers:
+  - name: small-regression
+    image: ppreejit/small-regression:latest
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "200m"
+        memory: "512Mi"
+    volumeMounts:
+    - name: data-volume
+      mountPath: /app/data
+  volumes:
+  - name: data-volume
+    emptyDir: {}
+  tolerations:
+  - key: "cloud.google.com/gke-spot"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: small-regression-topsis-3
+  annotations:
+    task.type: "compute_intensive"
+    task.loc: "110"
+    task.size: "small"
+spec:
+  schedulerName: topsis-scheduler
+  containers:
+  - name: small-regression
+    image: ppreejit/small-regression:latest
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "200m"
+        memory: "512Mi"
+    volumeMounts:
+    - name: data-volume
+      mountPath: /app/data
+  volumes:
+  - name: data-volume
+    emptyDir: {}
+  tolerations:
+  - key: "cloud.google.com/gke-spot"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: small-regression-topsis-4
+  annotations:
+    task.type: "compute_intensive"
+    task.loc: "110"
+    task.size: "small"
+spec:
+  schedulerName: topsis-scheduler
+  containers:
+  - name: small-regression
+    image: ppreejit/small-regression:latest
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "200m"
+        memory: "512Mi"
+    volumeMounts:
+    - name: data-volume
+      mountPath: /app/data
+  volumes:
+  - name: data-volume
+    emptyDir: {}
+  tolerations:
+  - key: "cloud.google.com/gke-spot"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+---
+# Small Regression Jobs (Light Category) - Default Scheduler
+apiVersion: v1
+kind: Pod
+metadata:
+  name: small-regression-default-1
+  annotations:
+    task.type: "compute_intensive"
+    task.loc: "110"
+    task.size: "small"
+spec:
+  # Using default scheduler
+  containers:
+  - name: small-regression
+    image: ppreejit/small-regression:latest
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "200m"
+        memory: "512Mi"
+    volumeMounts:
+    - name: data-volume
+      mountPath: /app/data
+  volumes:
+  - name: data-volume
+    emptyDir: {}
+  tolerations:
+  - key: "cloud.google.com/gke-spot"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: small-regression-default-2
+  annotations:
+    task.type: "compute_intensive"
+    task.loc: "110"
+    task.size: "small"
+spec:
+  # Using default scheduler
+  containers:
+  - name: small-regression
+    image: ppreejit/small-regression:latest
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "200m"
+        memory: "512Mi"
+    volumeMounts:
+    - name: data-volume
+      mountPath: /app/data
+  volumes:
+  - name: data-volume
+    emptyDir: {}
+  tolerations:
+  - key: "cloud.google.com/gke-spot"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: small-regression-default-3
+  annotations:
+    task.type: "compute_intensive"
+    task.loc: "110"
+    task.size: "small"
+spec:
+  # Using default scheduler
+  containers:
+  - name: small-regression
+    image: ppreejit/small-regression:latest
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "200m"
+        memory: "512Mi"
+    volumeMounts:
+    - name: data-volume
+      mountPath: /app/data
+  volumes:
+  - name: data-volume
+    emptyDir: {}
+  tolerations:
+  - key: "cloud.google.com/gke-spot"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: small-regression-default-4
+  annotations:
+    task.type: "compute_intensive"
+    task.loc: "110"
+    task.size: "small"
+spec:
+  # Using default scheduler
+  containers:
+  - name: small-regression
+    image: ppreejit/small-regression:latest
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "200m"
+        memory: "512Mi"
+    volumeMounts:
+    - name: data-volume
+      mountPath: /app/data
+  volumes:
+  - name: data-volume
+    emptyDir: {}
+  tolerations:
+  - key: "cloud.google.com/gke-spot"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+---
+# Scalable Regression Jobs (Medium Category) - TOPSIS
+apiVersion: v1
+kind: Pod
+metadata:
+  name: scalable-regression-topsis-1
+  annotations:
+    task.type: "compute_intensive"
+    task.loc: "185"
+    task.size: "scalable"
+spec:
+  schedulerName: topsis-scheduler
+  containers:
+  - name: scalable-regression
+    image: ppreejit/scalable-regression:latest
+    resources:
+      requests:
+        cpu: "200m"
+        memory: "384Mi"
+      limits:
+        cpu: "400m"
+        memory: "768Mi"
+    env:
+    - name: BATCH_SIZE
+      value: "10000"
+    - name: NUM_THREADS
+      value: "4"
+    volumeMounts:
+    - name: data-volume
+      mountPath: /app/data
+  volumes:
+  - name: data-volume
+    emptyDir: {}
+  tolerations:
+  - key: "cloud.google.com/gke-spot"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: scalable-regression-topsis-2
+  annotations:
+    task.type: "compute_intensive"
+    task.loc: "185"
+    task.size: "scalable"
+spec:
+  schedulerName: topsis-scheduler
+  containers:
+  - name: scalable-regression
+    image: ppreejit/scalable-regression:latest
+    resources:
+      requests:
+        cpu: "200m"
+        memory: "384Mi"
+      limits:
+        cpu: "400m"
+        memory: "768Mi"
+    env:
+    - name: BATCH_SIZE
+      value: "10000"
+    - name: NUM_THREADS
+      value: "4"
+    volumeMounts:
+    - name: data-volume
+      mountPath: /app/data
+  volumes:
+  - name: data-volume
+    emptyDir: {}
+  tolerations:
+  - key: "cloud.google.com/gke-spot"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+---
+# Scalable Regression Jobs (Medium Category) - Default Scheduler
+apiVersion: v1
+kind: Pod
+metadata:
+  name: scalable-regression-default-1
+  annotations:
+    task.type: "compute_intensive"
+    task.loc: "185"
+    task.size: "scalable"
+spec:
+  # Using default scheduler
+  containers:
+  - name: scalable-regression
+    image: ppreejit/scalable-regression:latest
+    resources:
+      requests:
+        cpu: "200m"
+        memory: "384Mi"
+      limits:
+        cpu: "400m"
+        memory: "768Mi"
+    env:
+    - name: BATCH_SIZE
+      value: "10000"
+    - name: NUM_THREADS
+      value: "4"
+    volumeMounts:
+    - name: data-volume
+      mountPath: /app/data
+  volumes:
+  - name: data-volume
+    emptyDir: {}
+  tolerations:
+  - key: "cloud.google.com/gke-spot"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: scalable-regression-default-2
+  annotations:
+    task.type: "compute_intensive"
+    task.loc: "185"
+    task.size: "scalable"
+spec:
+  # Using default scheduler
+  containers:
+  - name: scalable-regression
+    image: ppreejit/scalable-regression:latest
+    resources:
+      requests:
+        cpu: "200m"
+        memory: "384Mi"
+      limits:
+        cpu: "400m"
+        memory: "768Mi"
+    env:
+    - name: BATCH_SIZE
+      value: "10000"
+    - name: NUM_THREADS
+      value: "4"
+    volumeMounts:
+    - name: data-volume
+      mountPath: /app/data
+  volumes:
+  - name: data-volume
+    emptyDir: {}
+  tolerations:
+  - key: "cloud.google.com/gke-spot"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+---
+# Distributed Regression Jobs (Heavy Category) - TOPSIS Scheduler
+apiVersion: v1
+kind: Pod
+metadata:
+  name: distributed-regression-topsis-1
+  annotations:
+    task.type: "compute_intensive"
+    task.loc: "435"
+    task.size: "distributed"
+spec:
+  schedulerName: topsis-scheduler
+  containers:
+  - name: distributed-regression
+    image: ppreejit/distributed-regression:latest
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "1000m"
+        memory: "2Gi"
+    env:
+    - name: ALPHA
+      value: "0.1"
+    - name: NUM_PARTITIONS
+      value: "8"
+    - name: BATCH_SIZE
+      value: "10000"
+    - name: NUM_THREADS_PER_PARTITION
+      value: "2"
+    - name: USE_COMPRESSION
+      value: "true"
+    - name: NUM_FOLDS
+      value: "3"
+    volumeMounts:
+    - name: data-volume
+      mountPath: /app/data
+    - name: cache-volume
+      mountPath: /app/cache
+  volumes:
+  - name: data-volume
+    emptyDir: {}
+  - name: cache-volume
+    emptyDir: {}
+  tolerations:
+  - key: "cloud.google.com/gke-spot"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+---
+# Distributed Regression Jobs (Heavy Category) - Default Scheduler
+apiVersion: v1
+kind: Pod
+metadata:
+  name: distributed-regression-default-1
+  annotations:
+    task.type: "compute_intensive"
+    task.loc: "435"
+    task.size: "distributed"
+spec:
+  # Using default scheduler
+  containers:
+  - name: distributed-regression
+    image: ppreejit/distributed-regression:latest
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "1000m"
+        memory: "2Gi"
+    env:
+    - name: ALPHA
+      value: "0.1"
+    - name: NUM_PARTITIONS
+      value: "8"
+    - name: BATCH_SIZE
+      value: "10000"
+    - name: NUM_THREADS_PER_PARTITION
+      value: "2"
+    - name: USE_COMPRESSION
+      value: "true"
+    - name: NUM_FOLDS
+      value: "3"
+    volumeMounts:
+    - name: data-volume
+      mountPath: /app/data
+    - name: cache-volume
+      mountPath: /app/cache
+  volumes:
+  - name: data-volume
+    emptyDir: {}
+  - name: cache-volume
+    emptyDir: {}
+  tolerations:
+  - key: "cloud.google.com/gke-spot"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"

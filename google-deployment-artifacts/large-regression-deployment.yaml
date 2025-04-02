@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: distributed-regression-topsis-1
+  annotations:
+    task.type: "compute_intensive"
+    task.loc: "435"  # Lines of code, significantly larger than the other workloads
+spec:
+  schedulerName: topsis-scheduler
+  containers:
+  - name: distributed-regression
+    image: ppreejit/large-regression:latest
+    resources:
+      requests:
+        cpu: "1000m"  # 1 full CPU core
+        memory: "2Gi"  # 2GB memory
+      limits:
+        cpu: "2000m"  # 2 CPU cores
+        memory: "4Gi"  # 4GB memory
+    env:
+    - name: ALPHA
+      value: "0.1"
+    - name: NUM_PARTITIONS
+      value: "8"
+    - name: BATCH_SIZE
+      value: "10000"
+    - name: NUM_THREADS_PER_PARTITION
+      value: "2"  
+    - name: USE_COMPRESSION
+      value: "true"
+    - name: NUM_FOLDS
+      value: "3"
+    volumeMounts:
+    - name: data-volume
+      mountPath: /app/data
+    - name: cache-volume
+      mountPath: /app/cache
+  volumes:
+  - name: data-volume
+    emptyDir: {}
+  - name: cache-volume
+    emptyDir: {}
+  tolerations:
+  - key: "cloud.google.com/gke-spot"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"

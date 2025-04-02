@@ -1,0 +1,36 @@
+# serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: topsis-scheduler
+  namespace: kube-system
+---
+# clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: topsis-scheduler
+rules:
+- apiGroups: [""]
+  resources: ["pods", "nodes", "events"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+- apiGroups: [""]
+  resources: ["pods/binding"]
+  verbs: ["create"]
+- apiGroups: [""]
+  resources: ["pods/status"]
+  verbs: ["patch", "update"]
+---
+# clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: topsis-scheduler
+subjects:
+- kind: ServiceAccount
+  name: topsis-scheduler
+  namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: topsis-scheduler
+  apiGroup: rbac.authorization.k8s.io

@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: small-regression-default-1
+  namespace: default
+  annotations:
+    task.loc: "110"
+    task.size: "small"
+    task.type: "compute_intensive"
+spec:
+  containers:
+  - name: small-regression
+    image: ppreejit/small-regression:latest
+    resources:
+      limits:
+        cpu: "200m"
+        memory: "512Mi"
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+    volumeMounts:
+    - mountPath: "/app/data"
+      name: data-volume
+  volumes:
+  - name: data-volume
+    emptyDir: {}

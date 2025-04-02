@@ -1,0 +1,172 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: metrics-collector
+  namespace: default
+spec:
+  serviceAccountName: metrics-agent-sa
+  containers:
+  - name: collector
+    image: ubuntu:20.04
+    command:
+    - /bin/bash
+    - -c
+    - |
+      # Install required packages
+      apt-get update
+      apt-get install -y bc curl wget
+
+      # Install kubectl by direct download
+      curl -LO "https://dl.k8s.io/release/v1.27.0/bin/linux/amd64/kubectl"
+      chmod +x kubectl
+      mv kubectl /usr/local/bin/
+      
+      # Test kubectl
+      kubectl version --client
+      
+      # Create the collector script
+      cat > /tmp/metrics-collector.sh << 'EOF'
+      #!/bin/bash
+
+      # Configuration
+      NAMESPACE="default"
+      LOG_FILE="/tmp/metrics-collector.log"
+      METRICS_FILE="/tmp/pod-metrics.csv"
+      SLEEP_INTERVAL=10
+
+      # Initialize
+      echo "timestamp,pod_name,scheduler,node,task_type,task_size,status,scheduling_time_ms,energy_j,energy_kj" > $METRICS_FILE
+      echo "Starting Metrics Collector at $(date)" > $LOG_FILE
+
+      # Function to estimate energy
+      estimate_energy() {
+          local pod_name=$1
+          local node_name=$2
+          
+          # Get pod info
+          local task_type=$(kubectl get pod $pod_name -o jsonpath='{.metadata.annotations.task\.type}' 2>/dev/null || echo "default")
+          local task_size=$(kubectl get pod $pod_name -o jsonpath='{.metadata.annotations.task\.size}' 2>/dev/null || echo "small")
+          local cpu_request=$(kubectl get pod $pod_name -o jsonpath='{.spec.containers[0].resources.requests.cpu}' 2>/dev/null || echo "100m")
+          
+          # Convert CPU millicores
+          if [[ $cpu_request == *"m"* ]]; then
+              cpu_request=${cpu_request%m}
+              cpu_request=$(echo "scale=3; $cpu_request / 1000" | bc)
+          fi
+          
+          # Get node CPU
+          local node_cpu=$(kubectl get node $node_name -o jsonpath='{.status.capacity.cpu}' 2>/dev/null || echo "1")
+          
+          # Calculate energy
+          local tdp=$(echo "scale=2; $node_cpu * 25" | bc)
+          local execution_time=8
+          
+          if [[ "$task_type" == "compute_intensive" ]]; then
+              execution_time=$(echo "scale=2; $execution_time * 1.5" | bc)
+          fi
+          
+          if [[ "$task_size" == "scalable" ]]; then
+              execution_time=$(echo "scale=2; $execution_time * 1.25" | bc)
+          elif [[ "$task_size" == "distributed" ]]; then
+              execution_time=$(echo "scale=2; $execution_time * 2.0" | bc)
+          fi
+          
+          local core_ratio=$(echo "scale=4; $cpu_request / $node_cpu" | bc)
+          local active_energy=$(echo "scale=4; $tdp * $core_ratio * $execution_time" | bc)
+          local idle_energy=$(echo "scale=4; $tdp * 0.3 * (1 - $core_ratio) * $execution_time" | bc)
+          local total_energy=$(echo "scale=4; $active_energy + $idle_energy" | bc)
+          local energy_kj=$(echo "scale=4; $total_energy / 1000" | bc)
+          
+          echo "$total_energy,$energy_kj"
+      }
+
+      # Main loop
+      while true; do
+          echo "Scanning pods at $(date)" | tee -a $LOG_FILE
+          
+          # Get pods using simpler method
+          pods_list=$(kubectl get pods -n $NAMESPACE --no-headers | awk '{print $1}')
+          echo "Found pods: $pods_list" | tee -a $LOG_FILE
+          
+          # Loop through pods
+          for pod in $pods_list; do
+              # Only process regression pods
+              if [[ $pod == *regression* ]]; then
+                  echo "Found regression pod: $pod" | tee -a $LOG_FILE
+                  
+                  # Get basic info
+                  scheduler=$(kubectl get pod $pod -o jsonpath='{.spec.schedulerName}' 2>/dev/null || echo "default-scheduler")
+                  node_name=$(kubectl get pod $pod -o jsonpath='{.spec.nodeName}' 2>/dev/null || echo "unscheduled")
+                  status=$(kubectl get pod $pod -o jsonpath='{.status.phase}' 2>/dev/null)
+                  task_type=$(kubectl get pod $pod -o jsonpath='{.metadata.annotations.task\.type}' 2>/dev/null || echo "default")
+                  task_size=$(kubectl get pod $pod -o jsonpath='{.metadata.annotations.task\.size}' 2>/dev/null || echo "small")
+                  
+                  # Skip unscheduled pods
+                  if [[ "$node_name" == "unscheduled" ]]; then
+                      echo "Pod $pod is not yet scheduled, skipping" | tee -a $LOG_FILE
+                      continue
+                  fi
+                  
+                  # Get scheduling time
+                  creation_time=$(kubectl get pod $pod -o jsonpath='{.metadata.creationTimestamp}')
+                  condition_time=$(kubectl get pod $pod -o jsonpath='{.status.conditions[?(@.type=="PodScheduled")].lastTransitionTime}')
+                  
+                  echo "Pod $pod creation time: $creation_time" | tee -a $LOG_FILE
+                  echo "Pod $pod scheduled time: $condition_time" | tee -a $LOG_FILE
+                  
+                  creation_epoch=$(date -d "$creation_time" +%s)
+                  condition_epoch=$(date -d "$condition_time" +%s)
+                  
+                  # Calculate scheduling time in ms
+                  scheduling_time=$(echo "($condition_epoch - $creation_epoch) * 1000" | bc)
+                  
+                  # Force positive value
+                  if (( $(echo "$scheduling_time <= 0" | bc -l) )); then
+                      scheduling_time=1
+                      echo "Calculated non-positive scheduling time, using minimum value" | tee -a $LOG_FILE
+                  fi
+                  
+                  # Get energy estimate
+                  energy_data=$(estimate_energy $pod $node_name)
+                  energy_j=$(echo $energy_data | cut -d',' -f1)
+                  energy_kj=$(echo $energy_data | cut -d',' -f2)
+                  
+                  # Record data
+                  echo "$(date +%Y-%m-%d-%H:%M:%S),$pod,$scheduler,$node_name,$task_type,$task_size,$status,$scheduling_time,$energy_j,$energy_kj" >> $METRICS_FILE
+                  echo "Metrics for $pod - Node: $node_name, Scheduling time: ${scheduling_time}ms, Energy: ${energy_kj}kJ" | tee -a $LOG_FILE
+                  
+                  # Add pod annotations if not already present
+                  has_metrics=$(kubectl get pod $pod -o jsonpath='{.metadata.annotations.metrics\.recorded}' 2>/dev/null)
+                  if [[ -z "$has_metrics" ]]; then
+                      echo "Adding metrics annotations to $pod" | tee -a $LOG_FILE
+                      kubectl annotate pod $pod \
+                          metrics.schedulingTimeMs="$scheduling_time" \
+                          metrics.energyJ="$energy_j" \
+                          metrics.energyKJ="$energy_kj" \
+                          metrics.nodeSelected="$node_name" \
+                          metrics.recorded="true" \
+                          --overwrite
+                  fi
+              fi
+          done
+          
+          sleep $SLEEP_INTERVAL
+      done
+      EOF
+      
+      chmod +x /tmp/metrics-collector.sh
+      echo "Starting metrics collector..."
+      /tmp/metrics-collector.sh
+    resources:
+      limits:
+        cpu: "200m"
+        memory: "512Mi"
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+    volumeMounts:
+    - name: metrics-storage
+      mountPath: /tmp
+  volumes:
+  - name: metrics-storage
+    emptyDir: {}

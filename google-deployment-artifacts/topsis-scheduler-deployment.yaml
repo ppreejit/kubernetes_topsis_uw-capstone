@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: topsis-scheduler
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: topsis-scheduler
+  template:
+    metadata:
+      labels:
+        app: topsis-scheduler
+    spec:
+      serviceAccountName: topsis-scheduler
+      tolerations:                                  # Moved here - at pod level
+      - key: "cloud.google.com/gke-spot"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      containers:
+      - name: topsis-scheduler
+        image: ppreejit/topsis-scheduler:v38
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+          limits:
+            cpu: "1000m"
+            memory: "1Gi"
+        env:
+        - name: INSTRUCTIONS_PER_LOC
+          value: "10"

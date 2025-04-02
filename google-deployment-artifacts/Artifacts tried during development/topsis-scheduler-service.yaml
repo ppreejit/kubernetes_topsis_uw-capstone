@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: topsis-scheduler
+spec:
+  selector:
+    app: topsis-scheduler
+  ports:
+    - protocol: TCP
+      port: 8080  # Port your scheduler is running on
+      targetPort: 8080
+  clusterIP: None  # Optional if you need internal DNS resolution
