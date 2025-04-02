@@ -1,0 +1,194 @@
+package com.process.tasks;
+
+import java.io.*;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.*;
+import java.nio.file.*;
+import java.util.stream.*;
+
+public class ScalableLinearRegression {
+    private double weight;
+    private double bias;
+    private double r2Score;
+    private final int batchSize;
+    private final int numThreads;
+    
+    public ScalableLinearRegression(int batchSize, int numThreads) {
+        this.batchSize = batchSize;
+        this.numThreads = numThreads;
+    }
+
+    // Batch statistics calculator for parallel processing
+    private static class BatchStatistics {
+        double sumX = 0;
+        double sumY = 0;
+        double sumXY = 0;
+        double sumXSquared = 0;
+        int count = 0;
+        
+        void update(double x, double y) {
+            sumX += x;
+            sumY += y;
+            sumXY += x * y;
+            sumXSquared += x * x;
+            count++;
+        }
+        
+        void combine(BatchStatistics other) {
+            sumX += other.sumX;
+            sumY += other.sumY;
+            sumXY += other.sumXY;
+            sumXSquared += other.sumXSquared;
+            count += other.count;
+        }
+    }
+
+    // Fit the model using batched processing
+    public void fit(String dataFile) throws IOException, InterruptedException, ExecutionException {
+        ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+        List<Future<BatchStatistics>> futures = new ArrayList<>();
+        
+        // First pass: Calculate means and basic statistics
+        try (Stream<String> lines = Files.lines(Paths.get(dataFile)).skip(1)) {
+            List<List<String>> batches = new ArrayList<>();
+            List<String> currentBatch = new ArrayList<>();
+            
+            Iterator<String> iterator = lines.iterator();
+            while (iterator.hasNext()) {
+                currentBatch.add(iterator.next());
+                if (currentBatch.size() >= batchSize) {
+                    batches.add(new ArrayList<>(currentBatch));
+                    currentBatch.clear();
+                }
+            }
+            if (!currentBatch.isEmpty()) {
+                batches.add(currentBatch);
+            }
+
+            // Process batches in parallel
+            for (List<String> batch : batches) {
+                futures.add(executor.submit(() -> processBatch(batch)));
+            }
+        }
+
+        // Combine results
+        BatchStatistics totalStats = new BatchStatistics();
+        for (Future<BatchStatistics> future : futures) {
+            totalStats.combine(future.get());
+        }
+
+        // Calculate final parameters
+        double xMean = totalStats.sumX / totalStats.count;
+        double yMean = totalStats.sumY / totalStats.count;
+        
+        weight = (totalStats.sumXY - (totalStats.sumX * totalStats.sumY / totalStats.count)) /
+                (totalStats.sumXSquared - (totalStats.sumX * totalStats.sumX / totalStats.count));
+        bias = yMean - weight * xMean;
+
+        // Calculate R-squared using streaming
+        calculateR2Score(dataFile, yMean);
+        
+        executor.shutdown();
+    }
+
+    private BatchStatistics processBatch(List<String> batch) {
+        BatchStatistics stats = new BatchStatistics();
+        for (String line : batch) {
+            String[] values = line.split(",");
+            double x = Double.parseDouble(values[0].trim());
+            double y = Double.parseDouble(values[1].trim());
+            stats.update(x, y);
+        }
+        return stats;
+    }
+
+    private void calculateR2Score(String dataFile, double yMean) throws IOException {
+        try (Stream<String> lines = Files.lines(Paths.get(dataFile)).skip(1)) {
+            double[] sums = lines.parallel()
+                .map(line -> line.split(","))
+                .map(values -> {
+                    double x = Double.parseDouble(values[0].trim());
+                    double y = Double.parseDouble(values[1].trim());
+                    double predicted = predict(x);
+                    return new double[]{
+                        Math.pow(y - predicted, 2),  // residual SS
+                        Math.pow(y - yMean, 2)       // total SS
+                    };
+                })
+                .reduce(new double[]{0.0, 0.0},
+                    (a, b) -> new double[]{a[0] + b[0], a[1] + b[1]});
+            
+            r2Score = 1 - (sums[0] / sums[1]);
+        }
+    }
+
+    public double predict(double x) {
+        return weight * x + bias;
+    }
+
+    public String getModelMetrics() {
+        return String.format("Model Metrics:\nSlope (weight): %.4f\nIntercept (bias): %.4f\nR-squared: %.4f", 
+                           weight, bias, r2Score);
+    }
+
+    // Enhanced data generation for large datasets
+    public static void generateLargeDataset(String filePath, int numSamples) throws IOException {
+        int batchSize = 10000;
+        try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(filePath))) {
+            writer.write("size,price\n");
+            Random random = new Random();
+            
+            for (int i = 0; i < numSamples; i += batchSize) {
+                StringBuilder batch = new StringBuilder();
+                int currentBatchSize = Math.min(batchSize, numSamples - i);
+                
+                for (int j = 0; j < currentBatchSize; j++) {
+                    double size = 1000 + random.nextDouble() * 3000;
+                    double price = 100 + (0.2 * size) + (random.nextGaussian() * 50);
+                    batch.append(String.format("%.2f,%.2f%n", size, price));
+                }
+                writer.write(batch.toString());
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        try {
+            String filePath = "large_house_prices.csv";
+            int numSamples = 1_000_000;  // 1 million samples
+            
+            // Generate large dataset
+            System.out.println("Generating large dataset...");
+            generateLargeDataset(filePath, numSamples);
+            
+            // Create and train model
+            ScalableLinearRegression model = new ScalableLinearRegression(
+                10000,  // batch size
+                Runtime.getRuntime().availableProcessors()  // use all available cores
+            );
+            
+            System.out.println("Training model...");
+            long startTime = System.currentTimeMillis();
+            model.fit(filePath);
+            long endTime = System.currentTimeMillis();
+            
+            System.out.println("\nTraining completed in " + (endTime - startTime) / 1000.0 + " seconds");
+            System.out.println(model.getModelMetrics());
+            
+            // Test predictions
+            System.out.println("\nSample predictions:");
+            double[] testSizes = {1500, 2000, 2500, 3000, 3500};
+            for (double size : testSizes) {
+                System.out.printf("Size: %.0f sq ft -> Predicted price: $%.2fk%n", 
+                                size, model.predict(size));
+            }
+            
+        } catch (Exception e) {
+            System.err.println("Error: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+}

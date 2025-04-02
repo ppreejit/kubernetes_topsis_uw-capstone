@@ -1,0 +1,14 @@
+com\process\tasks\RandomForestModel$DecisionTree.class
+com\process\tasks\RandomForestModel$DecisionTree$Node.class
+com\process\tasks\RandomForestModel$DataSet.class
+com\process\tasks\SimpleDecisionTreeModel$DataSet.class
+com\process\tasks\LinearRegressionSmallDataset.class
+com\process\tasks\RandomForestModel$TreeTrainingResult.class
+com\process\tasks\ScalableLinearRegression$BatchStatistics.class
+com\process\tasks\DistributedLinearRegression.class
+com\process\tasks\SimpleDecisionTreeModel$Node.class
+com\process\tasks\RandomForestModel.class
+com\process\tasks\DistributedLinearRegression$PartitionStatistics.class
+com\process\tasks\SimpleDecisionTreeModel.class
+com\process\tasks\ScalableLinearRegression.class
+com\process\tasks\DistributedLinearRegression$BatchStatistics.class

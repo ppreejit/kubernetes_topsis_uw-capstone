@@ -1,0 +1,34 @@
+# Use the OpenJDK 17 slim image as the base
+FROM openjdk:17-slim
+
+# Set working directory
+WORKDIR /app
+
+# Copy project files
+COPY pom.xml .
+COPY src ./src
+
+# Install build tools (Maven)
+RUN apt-get update && apt-get install -y maven
+
+# Build the application
+RUN mvn clean package
+
+# Prepare necessary directories with proper permissions
+RUN mkdir -p /app/logs /app/config /input /output && \
+    chmod 777 /app/logs /input /output
+
+# Copy the logging configuration file
+COPY src/main/resources/logging.properties /app/config/
+
+# Clean up to reduce image size
+RUN rm -rf src /root/.m2 && \
+    apt-get remove -y maven && \
+    apt-get autoremove -y && \
+    apt-get clean
+
+# Set logging configuration through environment variables
+ENV JAVA_OPTS="-Djava.util.logging.config.file=/app/config/logging.properties"
+	
+CMD java -cp target/linear-regression-large-dataset-1.0-SNAPSHOT.jar com.process.tasks.DistributedLinearRegression && \
+    tail -f /dev/null
