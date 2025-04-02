@@ -1,0 +1,9 @@
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: ClusterConfiguration
+kubernetesVersion: v1.32.0  
+apiServer:
+  extraArgs:
+    "enable-admission-plugins": "NodeRestriction"
+controllerManager:
+  extraArgs:
+    "controllers": "*,bootstrapsigner,tokencleaner,-kube-scheduler"  # Disable kube-scheduler

@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: process-image
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: process-image
+  template:
+    metadata:
+      labels:
+        app: process-image
+    spec:
+      schedulerName: topsis-scheduler
+      containers:
+      - name: process-image
+        image: ppreejit/topsis-scheduler:v16
+        command: ["java"]
+        args: [
+          "-cp", 
+          "/app/target/topsis-scheduler-1.0-SNAPSHOT.jar", 
+          "com.process.tasks.ProcessImage", 
+          "/input/image.jpg", 
+          "/output/processed.jpg", 
+          "500"
+        ]
+        volumeMounts:
+        - name: input-volume
+          mountPath: /input
+        - name: output-volume
+          mountPath: /output
+      volumes:
+      - name: input-volume
+        persistentVolumeClaim:
+          claimName: input-pvc
+      - name: output-volume
+        persistentVolumeClaim:
+          claimName: output-pvc

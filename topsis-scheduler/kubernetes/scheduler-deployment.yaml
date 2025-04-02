@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: topsis-scheduler
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: topsis-scheduler
+  template:
+    metadata:
+      labels:
+        app: topsis-scheduler
+    spec:
+      serviceAccountName: topsis-scheduler
+      containers:
+      - name: scheduler
+        image: ppreejit/topsis-scheduler:1.0
+        resources:
+          requests:
+            cpu: 100m
+            memory: 200Mi
+          limits:
+            cpu: 200m
+            memory: 400Mi
