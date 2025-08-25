@@ -31,6 +31,8 @@ import java.time.Duration;
  * 
  * The scheduler runs as a standalone Java application and interacts with the
  * Kubernetes API to find unscheduled pods and bind them to appropriate nodes.
+ * 
+ * UPDATED FOR KUBERNETES CLIENT v19.0.0 API COMPATIBILITY
  */
 public class TopsisScheduler {
 	private static final Logger logger = Logger.getLogger(TopsisScheduler.class.getName());
@@ -202,13 +204,6 @@ public class TopsisScheduler {
 	 */
 	private static void storeSchedulingMetrics(V1Pod pod, SchedulingMetrics metrics) {
 		try {
-			// Create annotations map
-			Map<String, String> annotations = new HashMap<>();
-			annotations.put("scheduler.metrics.totalTimeMs", String.valueOf(metrics.totalTime.toMillis()));
-			annotations.put("scheduler.metrics.topsisTimeMs", String.valueOf(metrics.topsisTime.toMillis()));
-			annotations.put("scheduler.metrics.bindingTimeMs", String.valueOf(metrics.bindingTime.toMillis()));
-			annotations.put("scheduler.metrics.energyKJ", String.format("%.4f", metrics.energyConsumedJoules / 1000.0));
-
 			// Create a JSON patch for the pod to add annotations
 			V1Patch patch = new V1Patch(String.format("{\"metadata\":{\"annotations\":{"
 					+ "\"scheduler.metrics.totalTimeMs\":\"%d\"," + "\"scheduler.metrics.topsisTimeMs\":\"%d\","
@@ -228,7 +223,8 @@ public class TopsisScheduler {
 
 	/**
 	 * Retrieves all unscheduled pods that should be scheduled by this scheduler.
-	 * Only considers pods with schedulerName set to "topsis-scheduler".
+	 * Only considers pods with schedulerName set to "topsis-scheduler". UPDATED for
+	 * Kubernetes client v19.0.0 API
 	 * 
 	 * @param api Kubernetes API client
 	 * @return List of unscheduled pods
@@ -238,8 +234,19 @@ public class TopsisScheduler {
 		Instant start = Instant.now();
 		logger.info("Searching for unscheduled pods...");
 
-		// Get all pods across all namespaces
-		V1PodList podList = api.listPodForAllNamespaces(null, null, null, null, null, null, null, null, null, null);
+		// Get all pods across all namespaces - FIXED API call with 11 parameters
+		V1PodList podList = api.listPodForAllNamespaces(null, // allowWatchBookmarks
+				null, // _continue
+				null, // fieldSelector
+				null, // labelSelector
+				null, // limit
+				null, // pretty
+				null, // resourceVersion
+				null, // resourceVersionMatch
+				null, // sendInitialEvents
+				null, // timeoutSeconds
+				null // watch
+		);
 
 		// Filter for unscheduled pods with topsis-scheduler as scheduler name
 		List<V1Pod> unscheduledPods = podList.getItems().stream()
@@ -255,7 +262,7 @@ public class TopsisScheduler {
 
 	/**
 	 * Retrieves all available nodes in the cluster. Only considers nodes with Ready
-	 * condition set to True.
+	 * condition set to True. UPDATED for Kubernetes client v19.0.0 API
 	 * 
 	 * @param api Kubernetes API client
 	 * @return List of available nodes
@@ -265,8 +272,19 @@ public class TopsisScheduler {
 		Instant start = Instant.now();
 		logger.info("Getting available nodes...");
 
-		// Get all nodes in the cluster
-		V1NodeList nodeList = api.listNode(null, null, null, null, null, null, null, null, null, null);
+		// Get all nodes in the cluster - FIXED API call with 11 parameters
+		V1NodeList nodeList = api.listNode(null, // pretty
+				null, // allowWatchBookmarks
+				null, // _continue
+				null, // fieldSelector
+				null, // labelSelector
+				null, // limit
+				null, // resourceVersion
+				null, // resourceVersionMatch
+				null, // sendInitialEvents
+				null, // timeoutSeconds
+				null // watch
+		);
 
 		// Filter for nodes with Ready condition = True
 		List<V1Node> availableNodes = nodeList.getItems().stream()
@@ -685,7 +703,8 @@ public class TopsisScheduler {
 	}
 
 	/**
-	 * Gets all pods scheduled to a specific node.
+	 * Gets all pods scheduled to a specific node. UPDATED for Kubernetes client
+	 * v19.0.0 API
 	 * 
 	 * @param nodeName The name of the node
 	 * @return List of pods on the node
@@ -693,8 +712,21 @@ public class TopsisScheduler {
 	 */
 	private static List<V1Pod> getPodsByNodeName(String nodeName) throws ApiException {
 		String fieldSelector = String.format("spec.nodeName=%s", nodeName);
-		V1PodList podList = api.listPodForAllNamespaces(null, null, fieldSelector, null, null, null, null, null, null,
-				null);
+
+		// FIXED API call with 11 parameters
+		V1PodList podList = api.listPodForAllNamespaces(null, // allowWatchBookmarks
+				null, // _continue
+				fieldSelector, // fieldSelector
+				null, // labelSelector
+				null, // limit
+				null, // pretty
+				null, // resourceVersion
+				null, // resourceVersionMatch
+				null, // sendInitialEvents
+				null, // timeoutSeconds
+				null // watch
+		);
+
 		return podList.getItems();
 	}
 
