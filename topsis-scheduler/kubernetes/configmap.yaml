@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: enhanced-scheduler-config
+  namespace: scheduler-system
+data:
+  # Logging configuration
+  logging.properties: |
+    # Root logger configuration
+    .level = INFO
+    handlers = java.util.logging.ConsoleHandler
+
+    # Console handler configuration
+    java.util.logging.ConsoleHandler.level = INFO
+    java.util.logging.ConsoleHandler.formatter = java.util.logging.SimpleFormatter
+
+    # Custom formatting for better readability
+    java.util.logging.SimpleFormatter.format = %1$tY-%1$tm-%1$td %1$tH:%1$tM:%1$tS [%4$-7s] %5$s %6$s%n
+
+    # Enhanced scheduler specific logging
+    com.scheduler.level = INFO
+    com.scheduler.EnhancedMultiCriteriaScheduler.level = INFO
+
+    # Kubernetes client logging (reduce verbosity)
+    io.kubernetes.client.level = WARNING
+    okhttp3.level = WARNING
+
+  # Scheduler configuration
+  scheduler-config.yaml: |
+    # Enhanced Multi-Criteria Scheduler Configuration
+    scheduler:
+      name: "enhanced-scheduler"
+      algorithms:
+        topsis:
+          enabled: true
+          weights: [0.2, 0.2, 0.2, 0.2, 0.2]  # exec, energy, cpu, memory, balance
+        vikor:
+          enabled: true
+          nu: 0.5  # Decision strategy weight
+        weighted_sum:
+          enabled: true
+          adaptive_weights: true
+      thresholds:
+        high_load: 50  # Number of pending pods
+        conflict_level: 0.7  # Criteria conflict threshold
+      scheduling:
+        cycle_interval: 10  # seconds
+        bind_timeout: 30  # seconds
+        max_retries: 3
