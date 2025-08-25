@@ -1,15 +1,5 @@
-com\scheduler\EnhancedMultiCriteriaScheduler$SchedulingResult.class
-com\scheduler\EnhancedMultiCriteriaScheduler$SchedulingMetrics.class
-com\scheduler\EnhancedMultiCriteriaScheduler$WeightedSumResult.class
-com\scheduler\EnhancedMultiCriteriaScheduler$VikorResult.class
 com\scheduler\TopsisScheduler$SchedulingMetrics.class
-com\scheduler\TopsisScheduler$NodeMetrics.class
-com\scheduler\EnhancedMultiCriteriaScheduler$Task.class
-com\scheduler\EnhancedMultiCriteriaScheduler$TopsisResult.class
-com\scheduler\EnhancedMultiCriteriaScheduler$1.class
 com\scheduler\TopsisScheduler$Task.class
+com\scheduler\TopsisScheduler$NodeMetrics.class
 com\scheduler\TopsisScheduler.class
-com\scheduler\EnhancedMultiCriteriaScheduler.class
 com\scheduler\TopsisScheduler$TopsisResult.class
-com\scheduler\EnhancedMultiCriteriaScheduler$NodeMetrics.class
-com\scheduler\EnhancedMultiCriteriaScheduler$SchedulingAlgorithm.class
