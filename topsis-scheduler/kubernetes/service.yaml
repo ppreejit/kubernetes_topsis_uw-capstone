@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: enhanced-scheduler-metrics
+  namespace: scheduler-system
+  labels:
+    app: enhanced-scheduler
+    component: metrics
+spec:
+  selector:
+    app: enhanced-scheduler
+  ports:
+  - name: metrics
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP

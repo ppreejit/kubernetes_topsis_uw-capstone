@@ -1,0 +1,90 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-compute-intensive
+  namespace: scheduler-test
+  labels:
+    workload-type: compute-intensive
+    test-case: topsis-vikor
+  annotations:
+    task.type: "compute_intensive"
+    task.priority: "high"
+    task.loc: "1500"
+    task.size: "scalable"
+    description: "High CPU workload to test TOPSIS/VIKOR selection"
+spec:
+  schedulerName: "enhanced-scheduler"
+  containers:
+  - name: compute-app
+    image: nginx:alpine
+    command: ["sh", "-c", "while true; do echo 'Computing...'; sleep 10; done"]
+    resources:
+      requests:
+        cpu: 300m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+  restartPolicy: Never
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-memory-intensive
+  namespace: scheduler-test
+  labels:
+    workload-type: memory-intensive
+    test-case: algorithm-selection
+  annotations:
+    task.type: "memory_intensive"
+    task.priority: "normal"
+    task.loc: "800"
+    task.size: "small"
+    description: "Memory-heavy workload for adaptive weight testing"
+spec:
+  schedulerName: "enhanced-scheduler"
+  containers:
+  - name: memory-app
+    image: redis:alpine
+    command: ["redis-server", "--maxmemory", "200mb"]
+    resources:
+      requests:
+        cpu: 100m
+        memory: 400Mi
+      limits:
+        cpu: 200m
+        memory: 800Mi
+  restartPolicy: Never
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-energy-efficient
+  namespace: scheduler-test
+  labels:
+    workload-type: energy-efficient
+    test-case: weighted-sum
+  annotations:
+    task.type: "energy_efficient"
+    task.priority: "low"
+    task.loc: "200"
+    task.size: "small"
+    description: "Low-energy workload for efficiency testing"
+spec:
+  schedulerName: "enhanced-scheduler"
+  containers:
+  - name: efficient-app
+    image: alpine:latest
+    command: ["sh", "-c", "while true; do echo 'Energy efficient task'; sleep 30; done"]
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+  restartPolicy: Never
+
+---

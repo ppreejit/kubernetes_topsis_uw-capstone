@@ -1,0 +1,16 @@
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: high-priority-workload
+value: 1000
+globalDefault: false
+description: "High priority workloads for performance testing"
+
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: low-priority-workload
+value: 100
+globalDefault: false
+description: "Low priority workloads for efficiency testing"

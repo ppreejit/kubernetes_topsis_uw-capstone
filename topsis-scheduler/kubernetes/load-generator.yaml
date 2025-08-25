@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: load-generator
+  namespace: scheduler-test
+  labels:
+    app: load-generator
+    purpose: high-load-testing
+spec:
+  replicas: 0  # Start with 0, scale up for load testing
+  selector:
+    matchLabels:
+      app: load-generator
+  template:
+    metadata:
+      labels:
+        app: load-generator
+      annotations:
+        task.type: "compute_intensive"
+        task.priority: "normal"
+        task.loc: "500"
+        task.size: "small"
+    spec:
+      schedulerName: "enhanced-scheduler"
+      containers:
+      - name: load-app
+        image: busybox:latest
+        command: ["sh", "-c", "while true; do echo 'Load test pod'; sleep 60; done"]
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
