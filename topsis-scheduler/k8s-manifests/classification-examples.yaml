@@ -1,0 +1,304 @@
+# Example 1: LIGHT Workload - Simple web server
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: light-webserver
+  namespace: scheduler-test
+  labels:
+    app: webserver
+    workload-category: light
+  annotations:
+    task.loc: "250"
+    task.priority: "normal"
+    description: "Light weight web server - should be classified as LIGHT"
+spec:
+  schedulerName: "enhanced-scheduler"
+  containers:
+  - name: nginx
+    image: nginx:alpine
+    resources:
+      requests:
+        cpu: 100m        # 0.1 cores - below LIGHT threshold (0.5)
+        memory: 128Mi    # 128 MB - below LIGHT threshold (512 MB)
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+---
+# Example 2: LIGHT with explicit annotation
+apiVersion: v1
+kind: Pod
+metadata:
+  name: light-api-service
+  namespace: scheduler-test
+  annotations:
+    workload.category: "LIGHT"  # Explicit classification
+    task.type: "energy_efficient"
+    task.loc: "300"
+spec:
+  schedulerName: "enhanced-scheduler"
+  containers:
+  - name: api
+    image: node:18-alpine
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+
+---
+# Example 3: SCALABLE Workload - Medium application
+apiVersion: v1
+kind: Pod
+metadata:
+  name: scalable-app-server
+  namespace: scheduler-test
+  labels:
+    app: app-server
+    tier: backend
+  annotations:
+    task.type: "compute_intensive"
+    task.loc: "1200"
+    task.size: "scalable"  # Explicit size hint
+    task.priority: "high"
+spec:
+  schedulerName: "enhanced-scheduler"
+  containers:
+  - name: app
+    image: python:3.11-slim
+    resources:
+      requests:
+        cpu: 800m        # 0.8 cores - between thresholds
+        memory: 1Gi      # 1 GB - between thresholds
+      limits:
+        cpu: 1500m
+        memory: 2Gi
+
+---
+# Example 4: SCALABLE with multiple containers
+apiVersion: v1
+kind: Pod
+metadata:
+  name: scalable-multi-container
+  namespace: scheduler-test
+  annotations:
+    task.loc: "1500"
+    description: "Multi-container pod - classified as SCALABLE"
+spec:
+  schedulerName: "enhanced-scheduler"
+  containers:
+  - name: app
+    image: nginx:latest
+    resources:
+      requests:
+        cpu: 400m
+        memory: 512Mi
+  - name: sidecar
+    image: busybox:latest
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+
+---
+# Example 5: DISTRIBUTED Workload - Kafka broker
+apiVersion: v1
+kind: Pod
+metadata:
+  name: distributed-kafka-broker
+  namespace: scheduler-test
+  labels:
+    app: kafka
+    app.kubernetes.io/component: broker  # Distributed system indicator
+  annotations:
+    task.type: "memory_intensive"
+    task.loc: "3000"
+    task.size: "distributed"
+spec:
+  schedulerName: "enhanced-scheduler"
+  containers:
+  - name: kafka
+    image: confluentinc/cp-kafka:latest
+    resources:
+      requests:
+        cpu: 2000m       # 2 cores - above SCALABLE threshold
+        memory: 4Gi      # 4 GB - above SCALABLE threshold
+      limits:
+        cpu: 4000m
+        memory: 8Gi
+  volumes:
+  - name: kafka-data
+    persistentVolumeClaim:
+      claimName: kafka-pvc  # Persistent volume = stateful = DISTRIBUTED
+
+---
+# Example 6: DISTRIBUTED with high resource requirements
+apiVersion: v1
+kind: Pod
+metadata:
+  name: distributed-ml-training
+  namespace: scheduler-test
+  annotations:
+    workload.category: "DISTRIBUTED"
+    task.type: "compute_intensive"
+    task.loc: "5000"
+    task.priority: "high"
+    description: "ML training job - high CPU and memory"
+spec:
+  schedulerName: "enhanced-scheduler"
+  containers:
+  - name: pytorch
+    image: pytorch/pytorch:latest
+    resources:
+      requests:
+        cpu: 3000m       # 3 cores - DISTRIBUTED
+        memory: 8Gi      # 8 GB - DISTRIBUTED
+      limits:
+        cpu: 6000m
+        memory: 16Gi
+
+---
+# Example 7: BATCH_PROCESSING type detection
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: batch-data-processing
+  namespace: scheduler-test
+  labels:
+    job-name: data-processor  # Batch indicator
+spec:
+  template:
+    metadata:
+      annotations:
+        task.loc: "800"
+        description: "Batch processing job - should detect BATCH_PROCESSING type"
+    spec:
+      schedulerName: "enhanced-scheduler"
+      containers:
+      - name: processor
+        image: python:3.11
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+      restartPolicy: Never
+
+---
+# Example 8: REAL_TIME workload
+apiVersion: v1
+kind: Pod
+metadata:
+  name: realtime-streaming
+  namespace: scheduler-test
+  annotations:
+    task.type: "real_time"
+    task.loc: "600"
+    task.priority: "high"
+    description: "Real-time streaming - should use fast algorithm"
+spec:
+  schedulerName: "enhanced-scheduler"
+  containers:
+  - name: streamer
+    image: redis:alpine
+    resources:
+      requests:
+        cpu: 300m
+        memory: 512Mi
+
+---
+# Example 9: StatefulSet pod (DISTRIBUTED)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: stateful-database
+  namespace: scheduler-test
+  labels:
+    statefulset.kubernetes.io/pod-name: postgres-0  # StatefulSet indicator
+    app: postgres
+  annotations:
+    task.type: "memory_intensive"
+    task.loc: "2000"
+spec:
+  schedulerName: "enhanced-scheduler"
+  containers:
+  - name: postgres
+    image: postgres:15
+    resources:
+      requests:
+        cpu: 1000m
+        memory: 2Gi
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+  volumes:
+  - name: pgdata
+    persistentVolumeClaim:
+      claimName: postgres-data
+
+---
+# Example 10: No resource requests (LOW confidence classification)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: no-resources-specified
+  namespace: scheduler-test
+  annotations:
+    task.loc: "100"
+    description: "No resource requests - classification will have lower confidence"
+spec:
+  schedulerName: "enhanced-scheduler"
+  containers:
+  - name: app
+    image: busybox:latest
+    command: ["sh", "-c", "while true; do echo hello; sleep 10; done"]
+
+---
+# Example 11: ENERGY_EFFICIENT type
+apiVersion: v1
+kind: Pod
+metadata:
+  name: energy-efficient-task
+  namespace: scheduler-test
+  annotations:
+    task.type: "energy_efficient"
+    task.loc: "150"
+    task.priority: "low"
+    description: "Energy-efficient workload - minimal resources"
+spec:
+  schedulerName: "enhanced-scheduler"
+  containers:
+  - name: cron-job
+    image: alpine:latest
+    command: ["sh", "-c", "echo 'Running scheduled task'; sleep 3600"]
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 50m
+        memory: 64Mi
+
+---
+# Example 12: COMPUTE_INTENSIVE type
+apiVersion: v1
+kind: Pod
+metadata:
+  name: compute-intensive-simulation
+  namespace: scheduler-test
+  annotations:
+    task.type: "compute_intensive"
+    task.loc: "2500"
+    task.priority: "high"
+    description: "CPU-heavy simulation - high CPU-to-memory ratio"
+spec:
+  schedulerName: "enhanced-scheduler"
+  containers:
+  - name: simulation
+    image: gcc:latest
+    resources:
+      requests:
+        cpu: 2000m       # High CPU
+        memory: 512Mi    # Relatively low memory = high CPU/memory ratio
+      limits:
+        cpu: 4000m
+        memory: 1Gi

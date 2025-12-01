@@ -1,34 +1,28 @@
-# Use the OpenJDK 17 slim image as the base
 FROM openjdk:17-slim
 
-# Set working directory
 WORKDIR /app
 
-# Copy project files
 COPY pom.xml .
 COPY src ./src
 
-# Install build tools (Maven)
 RUN apt-get update && apt-get install -y maven
 
-# Build the application
+
 RUN mvn clean package
 
-# Prepare necessary directories with proper permissions
+# COPY THE JAR TO THE ROOT APP DIRECTORY
+RUN cp target/enhanced-scheduler.jar /app/enhanced-scheduler.jar
+
 RUN mkdir -p /app/logs /app/config /input /output && \
     chmod 777 /app/logs /input /output
 
-# Copy the logging configuration file
 COPY src/main/resources/logging.properties /app/config/
 
-# Clean up to reduce image size
 RUN rm -rf src /root/.m2 && \
     apt-get remove -y maven && \
     apt-get autoremove -y && \
     apt-get clean
 
-# Set logging configuration through environment variables
 ENV JAVA_OPTS="-Djava.util.logging.config.file=/app/config/logging.properties"
-	
-CMD java -cp target/enhanced-scheduler.jar com.scheduler.EnhancedMultiCriteriaScheduler && \
-    tail -f /dev/null
+
+CMD ["java", "-jar", "target/enhanced-scheduler.jar"]

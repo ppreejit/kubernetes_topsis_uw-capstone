@@ -11,6 +11,11 @@ import io.kubernetes.client.util.ClientBuilder;
 import io.kubernetes.client.openapi.models.CoreV1Event;
 import io.kubernetes.client.openapi.models.V1EventSource;
 
+import com.scheduler.WorkloadClassifier;
+import com.scheduler.WorkloadClassifier.ClassificationResult;
+import com.scheduler.WorkloadClassifier.WorkloadCategory;
+import com.scheduler.WorkloadClassifier.WorkloadType;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
@@ -37,7 +42,7 @@ public class EnhancedMultiCriteriaScheduler {
 
 	// Thresholds for algorithm selection
 	private static final int HIGH_LOAD_THRESHOLD = 50; // Number of pending pods
-	private static final double CONFLICT_THRESHOLD = 0.7; // Criteria conflict level
+	private static final double CONFLICT_THRESHOLD = 0.85; // Criteria conflict level
 	private static final double VIKOR_NU = 0.5; // VIKOR decision-making strategy weight
 
 	/**
@@ -47,9 +52,6 @@ public class EnhancedMultiCriteriaScheduler {
 		TOPSIS, VIKOR, WEIGHTED_SUM
 	}
 
-	/**
-	 * Class to track scheduling metrics for each pod with algorithm information
-	 */
 	private static class SchedulingMetrics {
 		private final String podName;
 		private final Duration totalTime;
@@ -57,10 +59,14 @@ public class EnhancedMultiCriteriaScheduler {
 		private final Duration bindingTime;
 		private final double energyConsumedJoules;
 		private final SchedulingAlgorithm algorithm;
-		private final double score; // Algorithm-specific score
+		private final double score;
+		// NEW: Add classification info
+		private final WorkloadCategory category;
+		private final WorkloadType type;
 
 		public SchedulingMetrics(String podName, Duration totalTime, Duration algorithmTime, Duration bindingTime,
-				double energyConsumedJoules, SchedulingAlgorithm algorithm, double score) {
+				double energyConsumedJoules, SchedulingAlgorithm algorithm, double score, WorkloadCategory category,
+				WorkloadType type) {
 			this.podName = podName;
 			this.totalTime = totalTime;
 			this.algorithmTime = algorithmTime;
@@ -68,17 +74,29 @@ public class EnhancedMultiCriteriaScheduler {
 			this.energyConsumedJoules = energyConsumedJoules;
 			this.algorithm = algorithm;
 			this.score = score;
+			this.category = category;
+			this.type = type;
 		}
 
 		public void logMetrics() {
 			double energyKilojoules = energyConsumedJoules / 1000.0;
 			logger.info(String.format("Pod %s scheduling metrics:", podName));
+			logger.info(String.format("- Workload category: %s", category));
+			logger.info(String.format("- Workload type: %s", type));
 			logger.info(String.format("- Algorithm used: %s", algorithm));
 			logger.info(String.format("- Algorithm score: %.4f", score));
 			logger.info(String.format("- Total scheduling time: %d ms", totalTime.toMillis()));
 			logger.info(String.format("- Algorithm calculation time: %d ms", algorithmTime.toMillis()));
 			logger.info(String.format("- Binding time: %d ms", bindingTime.toMillis()));
 			logger.info(String.format("- Energy consumption: %.4f kJ", energyKilojoules));
+		}
+
+		public WorkloadCategory getCategory() {
+			return category;
+		}
+
+		public WorkloadType getType() {
+			return type;
 		}
 	}
 
@@ -168,7 +186,7 @@ public class EnhancedMultiCriteriaScheduler {
 				logger.warning("Could not find logging.properties file");
 			}
 
-			logger.info("Initializing Enhanced Multi-Criteria Scheduler...");
+			logger.info("Initializing Enhanced Multi-Criteria Scheduler with Workload Classification...");
 
 			// Initialize Kubernetes API client
 			ApiClient client = ClientBuilder.cluster().build();
@@ -195,19 +213,30 @@ public class EnhancedMultiCriteriaScheduler {
 
 						logger.info(String.format("Found %d available nodes for scheduling", nodes.size()));
 
-						// Determine scheduling algorithm based on cluster state
-						SchedulingAlgorithm algorithm = selectSchedulingAlgorithm(unscheduledPods, nodes);
-						logger.info(String.format("Selected %s algorithm for this cycle", algorithm));
-
 						// Process each unscheduled pod
 						for (V1Pod pod : unscheduledPods) {
 							try {
 								Instant schedulingStart = Instant.now();
+
+								// NEW: Classify workload before scheduling
+								ClassificationResult classification = WorkloadClassifier.classifyWorkload(pod);
+								logger.info(String.format("Pod %s classified as %s (%s) with %.2f confidence",
+										pod.getMetadata().getName(), classification.getCategory(),
+										classification.getType(), classification.getConfidence()));
+
+								// NEW: Get adjusted weights based on classification
+								double[] adjustedWeights = getAdjustedWeightsForClassification(classification);
+
+								// Determine scheduling algorithm (now considers classification)
+								SchedulingAlgorithm algorithm = selectSchedulingAlgorithm(unscheduledPods, nodes,
+										classification);
+
 								logger.info(String.format("Starting scheduling process for pod: %s using %s at %s",
 										pod.getMetadata().getName(), algorithm, schedulingStart));
 
-								// Run selected algorithm
-								SchedulingResult result = executeSchedulingAlgorithm(algorithm, nodes, pod);
+								// Run selected algorithm with adjusted weights
+								SchedulingResult result = executeSchedulingAlgorithm(algorithm, nodes, pod,
+										adjustedWeights);
 								String bestNode = result.getSelectedNode();
 								double energyEstimate = result.getEstimatedEnergy();
 
@@ -222,14 +251,14 @@ public class EnhancedMultiCriteriaScheduler {
 								Duration totalTime = Duration.between(schedulingStart, schedulingEnd);
 								Duration bindingTime = Duration.between(bindingStart, schedulingEnd);
 
-								// Log metrics
+								// Log metrics with classification info
 								SchedulingMetrics metrics = new SchedulingMetrics(pod.getMetadata().getName(),
 										totalTime, algorithmTime, bindingTime, energyEstimate, algorithm,
-										result.getScore());
+										result.getScore(), classification.getCategory(), classification.getType());
 								metrics.logMetrics();
 
 								// Store metrics in pod annotations
-								storeSchedulingMetrics(pod, metrics);
+								storeSchedulingMetrics(pod, metrics, classification);
 
 							} catch (Exception e) {
 								logger.log(Level.SEVERE, String.format("Failed to schedule pod %s: %s",
@@ -263,26 +292,109 @@ public class EnhancedMultiCriteriaScheduler {
 	}
 
 	/**
-	 * Selects the appropriate scheduling algorithm based on cluster state
+	 * Get adjusted weights based on workload classification
 	 */
-	private static SchedulingAlgorithm selectSchedulingAlgorithm(List<V1Pod> unscheduledPods, List<V1Node> nodes) {
-		// High load scenario - use fast Weighted Sum
-		if (unscheduledPods.size() >= HIGH_LOAD_THRESHOLD) {
-			logger.info(String.format("High load detected (%d pending pods), using Weighted Sum for speed",
-					unscheduledPods.size()));
-			return SchedulingAlgorithm.WEIGHTED_SUM;
+	private static double[] getAdjustedWeightsForClassification(ClassificationResult classification) {
+		// Base weights: [execTime, energy, cpu, memory, balance]
+		double[] weights = { 0.2, 0.2, 0.2, 0.2, 0.2 };
+
+		WorkloadCategory category = classification.getCategory();
+		WorkloadType type = classification.getType();
+
+		// Adjust based on category
+		switch (category) {
+		case LIGHT:
+			// Light workloads: prioritize energy efficiency
+			weights[1] = 0.35; // energy
+			weights[0] = 0.15; // execution time
+			weights[2] = 0.15; // cpu
+			weights[3] = 0.15; // memory
+			weights[4] = 0.20; // balance
+			logger.info("Applied LIGHT workload weights (energy-focused)");
+			break;
+
+		case SCALABLE:
+			// Scalable workloads: balanced approach
+			weights[0] = 0.25; // execution time
+			weights[1] = 0.20; // energy
+			weights[2] = 0.20; // cpu
+			weights[3] = 0.20; // memory
+			weights[4] = 0.15; // balance
+			logger.info("Applied SCALABLE workload weights (balanced)");
+			break;
+
+		case DISTRIBUTED:
+			// Distributed workloads: prioritize performance and resources
+			weights[0] = 0.30; // execution time
+			weights[1] = 0.10; // energy (less important)
+			weights[2] = 0.25; // cpu
+			weights[3] = 0.25; // memory
+			weights[4] = 0.10; // balance
+			logger.info("Applied DISTRIBUTED workload weights (performance-focused)");
+			break;
 		}
 
-		// Calculate criteria conflict level to decide between TOPSIS and VIKOR
-		double conflictLevel = calculateCriteriaConflict(nodes, unscheduledPods.get(0));
+		// Further adjust based on workload type
+		switch (type) {
+		case COMPUTE_INTENSIVE:
+			weights[2] *= 1.5; // increase CPU importance
+			weights[0] *= 1.3; // increase execution time importance
+			normalizeWeights(weights);
+			logger.info("Adjusted for COMPUTE_INTENSIVE type");
+			break;
 
-		if (conflictLevel >= CONFLICT_THRESHOLD) {
-			logger.info(String.format("High criteria conflict detected (%.3f), using VIKOR for compromise solution",
-					conflictLevel));
-			return SchedulingAlgorithm.VIKOR;
-		} else {
-			logger.info(String.format("Normal conflict level (%.3f), using TOPSIS", conflictLevel));
-			return SchedulingAlgorithm.TOPSIS;
+		case MEMORY_INTENSIVE:
+			weights[3] *= 1.5; // increase memory importance
+			normalizeWeights(weights);
+			logger.info("Adjusted for MEMORY_INTENSIVE type");
+			break;
+
+		case ENERGY_EFFICIENT:
+			weights[1] *= 1.8; // significantly increase energy importance
+			normalizeWeights(weights);
+			logger.info("Adjusted for ENERGY_EFFICIENT type");
+			break;
+
+		case BATCH_PROCESSING:
+			weights[0] *= 0.7; // decrease execution time importance
+			weights[1] *= 1.4; // increase energy importance
+			normalizeWeights(weights);
+			logger.info("Adjusted for BATCH_PROCESSING type");
+			break;
+
+		case REAL_TIME:
+			weights[0] *= 1.8; // significantly increase execution time importance
+			weights[4] *= 1.3; // increase balance for stability
+			normalizeWeights(weights);
+			logger.info("Adjusted for REAL_TIME type");
+			break;
+
+		case IO_INTENSIVE:
+		case DEFAULT:
+			// No additional adjustments
+			break;
+		}
+
+		logger.info(String.format("Final weights: execTime=%.3f, energy=%.3f, cpu=%.3f, memory=%.3f, balance=%.3f",
+				weights[0], weights[1], weights[2], weights[3], weights[4]));
+
+		return weights;
+	}
+
+	/**
+	 * Executes the selected scheduling algorithm with custom weights
+	 */
+	private static SchedulingResult executeSchedulingAlgorithm(SchedulingAlgorithm algorithm, List<V1Node> nodes,
+			V1Pod pod, double[] weights) throws ApiException {
+		switch (algorithm) {
+		case TOPSIS:
+			return topsisSchedule(nodes, pod, weights);
+		case VIKOR:
+			return vikorSchedule(nodes, pod, weights);
+		case WEIGHTED_SUM:
+			return weightedSumSchedule(nodes, pod, weights);
+		default:
+			throw new IllegalArgumentException("Unknown scheduling algorithm: " + algorithm);
 		}
 	}
 
@@ -352,19 +464,50 @@ public class EnhancedMultiCriteriaScheduler {
 	}
 
 	/**
-	 * Executes the selected scheduling algorithm
+	 * Selects scheduling algorithm based on cluster state AND workload
+	 * classification
 	 */
-	private static SchedulingResult executeSchedulingAlgorithm(SchedulingAlgorithm algorithm, List<V1Node> nodes,
-			V1Pod pod) throws ApiException {
-		switch (algorithm) {
-		case TOPSIS:
-			return topsisSchedule(nodes, pod);
-		case VIKOR:
-			return vikorSchedule(nodes, pod);
-		case WEIGHTED_SUM:
-			return weightedSumSchedule(nodes, pod);
-		default:
-			throw new IllegalArgumentException("Unknown scheduling algorithm: " + algorithm);
+	private static SchedulingAlgorithm selectSchedulingAlgorithm(List<V1Pod> unscheduledPods, List<V1Node> nodes,
+			ClassificationResult classification) {
+
+		WorkloadCategory category = classification.getCategory();
+		WorkloadType type = classification.getType();
+
+		// High load scenario - use fast Weighted Sum
+		if (unscheduledPods.size() >= HIGH_LOAD_THRESHOLD) {
+			logger.info(String.format("High load detected (%d pending pods), using Weighted Sum for speed",
+					unscheduledPods.size()));
+			return SchedulingAlgorithm.WEIGHTED_SUM;
+		}
+
+		// LIGHT workloads with high confidence can use fast Weighted Sum
+		if (category == WorkloadCategory.LIGHT && classification.getConfidence() > 0.85) {
+			logger.info("LIGHT workload with high confidence - using Weighted Sum for efficiency");
+			return SchedulingAlgorithm.WEIGHTED_SUM;
+		}
+
+		// REAL_TIME workloads should use fast algorithm
+		if (type == WorkloadType.REAL_TIME) {
+			logger.info("REAL_TIME workload - using Weighted Sum for speed");
+			return SchedulingAlgorithm.WEIGHTED_SUM;
+		}
+
+		// Calculate criteria conflict level to decide between TOPSIS and VIKOR
+		double conflictLevel = calculateCriteriaConflict(nodes, unscheduledPods.get(0));
+
+		// DISTRIBUTED workloads with conflicting requirements benefit from VIKOR
+		if (category == WorkloadCategory.DISTRIBUTED && conflictLevel >= 0.7) {
+			logger.info("DISTRIBUTED workload with high conflict - using VIKOR for compromise");
+			return SchedulingAlgorithm.VIKOR;
+		}
+
+		if (conflictLevel >= CONFLICT_THRESHOLD) {
+			logger.info(String.format("High criteria conflict detected (%.3f), using VIKOR for compromise solution",
+					conflictLevel));
+			return SchedulingAlgorithm.VIKOR;
+		} else {
+			logger.info(String.format("Normal conflict level (%.3f), using TOPSIS", conflictLevel));
+			return SchedulingAlgorithm.TOPSIS;
 		}
 	}
 
@@ -814,22 +957,27 @@ public class EnhancedMultiCriteriaScheduler {
 	 * Stores scheduling metrics as annotations on the pod with algorithm
 	 * information
 	 */
-	private static void storeSchedulingMetrics(V1Pod pod, SchedulingMetrics metrics) {
+	private static void storeSchedulingMetrics(V1Pod pod, SchedulingMetrics metrics,
+			ClassificationResult classification) {
 		try {
-			V1Patch patch = new V1Patch(String.format("{\"metadata\":{\"annotations\":{"
-					+ "\"scheduler.algorithm\":\"%s\"," + "\"scheduler.score\":\"%.4f\","
-					+ "\"scheduler.metrics.totalTimeMs\":\"%d\"," + "\"scheduler.metrics.algorithmTimeMs\":\"%d\","
-					+ "\"scheduler.metrics.bindingTimeMs\":\"%d\"," + "\"scheduler.metrics.energyKJ\":\"%.4f\"" + "}}}",
+			V1Patch patch = new V1Patch(String.format(
+					"{\"metadata\":{\"annotations\":{" + "\"scheduler.algorithm\":\"%s\","
+							+ "\"scheduler.score\":\"%.4f\"," + "\"scheduler.metrics.totalTimeMs\":\"%d\","
+							+ "\"scheduler.metrics.algorithmTimeMs\":\"%d\","
+							+ "\"scheduler.metrics.bindingTimeMs\":\"%d\"," + "\"scheduler.metrics.energyKJ\":\"%.4f\","
+							+ "\"workload.category.auto\":\"%s\"," + "\"workload.type.auto\":\"%s\","
+							+ "\"workload.classification.confidence\":\"%.2f\"" + "}}}",
 					metrics.algorithm.toString(), metrics.score, metrics.totalTime.toMillis(),
 					metrics.algorithmTime.toMillis(), metrics.bindingTime.toMillis(),
-					metrics.energyConsumedJoules / 1000.0));
+					metrics.energyConsumedJoules / 1000.0, classification.getCategory(), classification.getType(),
+					classification.getConfidence()));
 
 			api.patchNamespacedPod(pod.getMetadata().getName(), pod.getMetadata().getNamespace(), patch, null, null,
 					null, null, null);
 
-			logger.info(String.format("Stored scheduling metrics in pod %s annotations", pod.getMetadata().getName()));
+			logger.info(String.format("Stored enhanced metrics for pod %s", pod.getMetadata().getName()));
 		} catch (ApiException e) {
-			logger.warning(String.format("Failed to store metrics in pod annotations: %s", e.getMessage()));
+			logger.warning(String.format("Failed to store metrics: %s", e.getMessage()));
 		}
 	}
 
