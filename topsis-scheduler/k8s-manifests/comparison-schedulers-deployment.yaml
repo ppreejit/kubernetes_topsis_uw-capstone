@@ -1,0 +1,102 @@
+---
+# FIFO Scheduler Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fifo-scheduler
+  namespace: scheduler-system
+  labels:
+    app: fifo-scheduler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fifo-scheduler
+  template:
+    metadata:
+      labels:
+        app: fifo-scheduler
+    spec:
+      serviceAccountName: scheduler-sa
+      containers:
+      - name: fifo-scheduler
+        image: gcr.io/greenpod-scheduler-2025/fifo-scheduler:latest
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 200m
+            memory: 512Mi
+        env:
+        - name: JAVA_OPTS
+          value: "-Xms256m -Xmx512m"
+---
+# First-Fit Scheduler Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: first-fit-scheduler
+  namespace: scheduler-system
+  labels:
+    app: first-fit-scheduler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: first-fit-scheduler
+  template:
+    metadata:
+      labels:
+        app: first-fit-scheduler
+    spec:
+      serviceAccountName: scheduler-sa
+      containers:
+      - name: first-fit-scheduler
+        image: gcr.io/greenpod-scheduler-2025/first-fit-scheduler:latest
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 200m
+            memory: 512Mi
+        env:
+        - name: JAVA_OPTS
+          value: "-Xms256m -Xmx512m"
+---
+# Best-Fit Scheduler Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: best-fit-scheduler
+  namespace: scheduler-system
+  labels:
+    app: best-fit-scheduler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: best-fit-scheduler
+  template:
+    metadata:
+      labels:
+        app: best-fit-scheduler
+    spec:
+      serviceAccountName: scheduler-sa
+      containers:
+      - name: best-fit-scheduler
+        image: gcr.io/greenpod-scheduler-2025/best-fit-scheduler:latest
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 200m
+            memory: 512Mi
+        env:
+        - name: JAVA_OPTS
+          value: "-Xms256m -Xmx512m"

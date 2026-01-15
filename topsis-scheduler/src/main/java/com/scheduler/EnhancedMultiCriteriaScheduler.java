@@ -60,7 +60,7 @@ public class EnhancedMultiCriteriaScheduler {
 		private final double energyConsumedJoules;
 		private final SchedulingAlgorithm algorithm;
 		private final double score;
-		// NEW: Add classification info
+
 		private final WorkloadCategory category;
 		private final WorkloadType type;
 
@@ -218,16 +218,13 @@ public class EnhancedMultiCriteriaScheduler {
 							try {
 								Instant schedulingStart = Instant.now();
 
-								// NEW: Classify workload before scheduling
 								ClassificationResult classification = WorkloadClassifier.classifyWorkload(pod);
 								logger.info(String.format("Pod %s classified as %s (%s) with %.2f confidence",
 										pod.getMetadata().getName(), classification.getCategory(),
 										classification.getType(), classification.getConfidence()));
 
-								// NEW: Get adjusted weights based on classification
 								double[] adjustedWeights = getAdjustedWeightsForClassification(classification);
 
-								// Determine scheduling algorithm (now considers classification)
 								SchedulingAlgorithm algorithm = selectSchedulingAlgorithm(unscheduledPods, nodes,
 										classification);
 
@@ -515,7 +512,7 @@ public class EnhancedMultiCriteriaScheduler {
 	 * VIKOR (VlseKriterijumska Optimizacija I Kompromisno Resenje) algorithm
 	 * implementation Finds compromise solutions when criteria are conflicting
 	 */
-	private static VikorResult vikorSchedule(List<V1Node> nodes, V1Pod pod) throws ApiException {
+	private static VikorResult vikorSchedule(List<V1Node> nodes, V1Pod pod, double[] weights) throws ApiException {
 		Instant start = Instant.now();
 
 		if (nodes.isEmpty()) {
@@ -532,7 +529,7 @@ public class EnhancedMultiCriteriaScheduler {
 				String.format("Starting VIKOR calculation for task %s on %d nodes", task.name, eligibleNodes.size()));
 
 		int numCriteria = 5;
-		double[] weights = { 0.2, 0.2, 0.2, 0.2, 0.2 };
+		// double[] weights = { 0.2, 0.2, 0.2, 0.2, 0.2 };
 		double[][] criteriaMatrix = new double[eligibleNodes.size()][numCriteria];
 		double[] nodeEnergyEstimates = new double[eligibleNodes.size()];
 
@@ -665,7 +662,7 @@ public class EnhancedMultiCriteriaScheduler {
 	/**
 	 * Weighted Sum algorithm implementation for fast scheduling decisions
 	 */
-	private static WeightedSumResult weightedSumSchedule(List<V1Node> nodes, V1Pod pod) throws ApiException {
+	private static WeightedSumResult weightedSumSchedule(List<V1Node> nodes, V1Pod pod, double[] weights) throws ApiException {
 		Instant start = Instant.now();
 
 		if (nodes.isEmpty()) {
@@ -682,7 +679,7 @@ public class EnhancedMultiCriteriaScheduler {
 				eligibleNodes.size()));
 
 		// Adaptive weights based on task characteristics
-		double[] weights = calculateAdaptiveWeights(task);
+		// double[] weights = calculateAdaptiveWeights(task);
 		double[] nodeEnergyEstimates = new double[eligibleNodes.size()];
 
 		// Step 1: Calculate raw scores for each node
@@ -705,7 +702,6 @@ public class EnhancedMultiCriteriaScheduler {
 			} catch (Exception e) {
 				logger.warning(String.format("Error calculating metrics for node %s: %s",
 						eligibleNodes.get(i).getMetadata().getName(), e.getMessage()));
-				// Set to worst possible values
 				executionTimes[i] = Double.MAX_VALUE;
 				energyValues[i] = Double.MAX_VALUE;
 				cpuAvailability[i] = 0.0;
@@ -837,7 +833,7 @@ public class EnhancedMultiCriteriaScheduler {
 	/**
 	 * Original TOPSIS implementation (updated for new API)
 	 */
-	private static TopsisResult topsisSchedule(List<V1Node> nodes, V1Pod pod) throws ApiException {
+	private static TopsisResult topsisSchedule(List<V1Node> nodes, V1Pod pod, double[] weights) throws ApiException {
 		Instant start = Instant.now();
 
 		if (nodes.isEmpty()) {
@@ -856,7 +852,7 @@ public class EnhancedMultiCriteriaScheduler {
 				String.format("Starting TOPSIS calculation for task %s on %d nodes", task.name, eligibleNodes.size()));
 
 		int numCriteria = 5;
-		double[] weights = { 0.2, 0.2, 0.2, 0.2, 0.2 };
+		// double[] weights = { 0.2, 0.2, 0.2, 0.2, 0.2 };
 		double[][] decisionMatrix = new double[eligibleNodes.size()][numCriteria];
 		double[] nodeEnergyEstimates = new double[eligibleNodes.size()];
 
@@ -1175,7 +1171,7 @@ public class EnhancedMultiCriteriaScheduler {
 		}
 	}
 
-	// ============= TASK AND NODE METRICS CLASSES (unchanged) =============
+	// ============= TASK AND NODE METRICS CLASSES =============
 
 	private static class Task {
 		private final String name;
@@ -1212,7 +1208,7 @@ public class EnhancedMultiCriteriaScheduler {
 				}
 			}
 
-			return 100; // Default
+			return 100;
 		}
 
 		private static int countNonEmptyLines(String sourceCode) {

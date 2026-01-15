@@ -1,28 +1,33 @@
-FROM openjdk:17-slim
+# Build stage using official Maven image
+FROM maven:3.9-amazoncorretto-17 AS builder
+
+WORKDIR /build
+
+# Copy pom.xml and download dependencies
+COPY pom.xml .
+RUN mvn dependency:go-offline -B
+
+# Copy source and build
+COPY src ./src
+RUN mvn clean package -DskipTests
+
+# Runtime stage - use standard amazoncorretto:17
+FROM amazoncorretto:17
 
 WORKDIR /app
 
-COPY pom.xml .
-COPY src ./src
+# Copy JAR from builder
+COPY --from=builder /build/target/enhanced-scheduler.jar /app/enhanced-scheduler.jar
 
-RUN apt-get update && apt-get install -y maven
+# Copy logging configuration
+COPY src/main/resources/logging.properties /app/config/
 
-
-RUN mvn clean package
-
-# COPY THE JAR TO THE ROOT APP DIRECTORY
-RUN cp target/enhanced-scheduler.jar /app/enhanced-scheduler.jar
-
+# Create directories
 RUN mkdir -p /app/logs /app/config /input /output && \
     chmod 777 /app/logs /input /output
 
-COPY src/main/resources/logging.properties /app/config/
-
-RUN rm -rf src /root/.m2 && \
-    apt-get remove -y maven && \
-    apt-get autoremove -y && \
-    apt-get clean
-
+# Java options
 ENV JAVA_OPTS="-Djava.util.logging.config.file=/app/config/logging.properties"
 
-CMD ["java", "-jar", "target/enhanced-scheduler.jar"]
+# Run
+CMD ["sh", "-c", "java $JAVA_OPTS -jar /app/enhanced-scheduler.jar"]

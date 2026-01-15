@@ -1,0 +1,83 @@
+---
+# Test with Default Kubernetes Scheduler
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-default-scheduler-1
+  namespace: scheduler-test
+spec:
+  # No schedulerName = uses default scheduler
+  containers:
+  - name: app
+    image: nginx:alpine
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+---
+# Test with FIFO Scheduler
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-fifo-scheduler-1
+  namespace: scheduler-test
+spec:
+  schedulerName: fifo-scheduler
+  containers:
+  - name: app
+    image: nginx:alpine
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+---
+# Test with First-Fit Scheduler
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-first-fit-scheduler-1
+  namespace: scheduler-test
+spec:
+  schedulerName: first-fit-scheduler
+  containers:
+  - name: app
+    image: nginx:alpine
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+---
+# Test with Best-Fit Scheduler
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-best-fit-scheduler-1
+  namespace: scheduler-test
+spec:
+  schedulerName: best-fit-scheduler
+  containers:
+  - name: app
+    image: nginx:alpine
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+---
+# Test with Enhanced Multi-Criteria Scheduler
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-enhanced-scheduler-1
+  namespace: scheduler-test
+  annotations:
+    workload.category: "LIGHT"
+    task.type: "energy_efficient"
+spec:
+  schedulerName: enhanced-scheduler
+  containers:
+  - name: app
+    image: nginx:alpine
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
